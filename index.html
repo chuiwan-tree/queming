@@ -18,7 +18,7 @@ canvas{display:block;cursor:crosshair}
 <p class="s">一种麻雀，西边的唱新歌（金色），东边的唱老歌（绿色）。小鸟跟着身边听到多的学。冬天它们飞到南边几片地方过冬，混住在一起，冬天听到的也算。</p>
 <p class="s">你有几口气（第一张图四口，第二张三口，第三张也是三口）。春天点一下地图，就在那儿对今年的小鸟吹一遍新歌。让新歌从西唱到东，唱遍整片地方（每一列都过半）。吹完了别急，有时候要等十几二十年才看得出吹没吹成。</p>
 <div id="top"><span id="lvn"></span><span>第 <b id="yr">0</b> 年</span><span id="br"></span>
-<button id="go">开始</button><button id="re">从头</button><button id="lv"></button>
+<button id="go">开始</button><button id="re">从头</button><button id="lv"></button><button id="luck">没有你的话</button>
 <label style="font-size:13px"><input type="checkbox" id="sh"> 看过冬地</label><label style="font-size:13px"><input type="checkbox" id="fast"> 快</label></div>
 <canvas id="cv"></canvas>
 <div id="msg"></div>
@@ -30,8 +30,8 @@ const Q=window.Que, C=26, cv=document.getElementById('cv'), g=cv.getContext('2d'
 const MAPH=Q.H*C, WINH=70;
 cv.width=Q.W*C; cv.height=MAPH+WINH+10;
 const LV=[{map:'直',br:4,name:'第一张图'},{map:'弯',br:3,name:'第二张图'},{map:'真',br:3,name:'第三张图',q:0.45,note:'这张图照真鸟画的：西边和中部的鸟都去美国中南部同一大片地方过冬，山西边的鸟有四成多也去；东边的鸟去佐治亚，自己一片。'}];let lv=0,BREATHS=4,P=Q.P0;const LIMIT=200;
-let f,yr,left,run,timer,marks,done,hist,hov=null;
-function reset(){Q.useMap(LV[lv].map);BREATHS=LV[lv].br;P=Object.assign({},Q.P0,LV[lv].q!==undefined?{q:LV[lv].q}:{});document.getElementById('lv').textContent='换到'+LV[(lv+1)%LV.length].name;document.getElementById('note').textContent=LV[lv].note||'';f=Q.fresh();yr=0;left=BREATHS;run=false;done=false;marks=[];hist=[];clearInterval(timer);
+let f,yr,left,run,timer,marks,done,hist,hov=null,luck=false,flashes=[];
+function reset(){Q.useMap(LV[lv].map);BREATHS=LV[lv].br;P=Object.assign({},Q.P0,LV[lv].q!==undefined?{q:LV[lv].q}:{});document.getElementById('lv').textContent='换到'+LV[(lv+1)%LV.length].name;document.getElementById('note').textContent=LV[lv].note||'';luck=false;flashes=[];f=Q.fresh();yr=0;left=BREATHS;run=false;done=false;marks=[];hist=[];clearInterval(timer);
   document.getElementById('go').textContent='开始';msg('');draw();}
 function msg(s){document.getElementById('msg').textContent=s;}
 function col(v){ // 绿(老) -> 金(新)
@@ -43,6 +43,7 @@ function draw(){
   // 山
   g.fillStyle='rgba(120,90,60,0.85)';
   for(let y=0;y<Q.H;y++){g.beginPath();g.moveTo(Q.ROCK*C-5,y*C+C);g.lineTo(Q.ROCK*C+2,y*C+3);g.lineTo(Q.ROCK*C+9,y*C+C);g.fill();}
+  for(const m of flashes){const a=1-(yr-m.t)/6;if(a>0){g.strokeStyle='rgba(180,220,255,'+a+')';g.lineWidth=1.5;g.strokeRect((m.x-1)*C+1,(m.y-1)*C+1,3*C-3,3*C-3);}}
   for(const m of marks){g.strokeStyle='rgba(255,255,255,'+Math.max(0.15,1-(yr-m.t)/20)+')';g.lineWidth=2;g.strokeRect((m.x-1)*C+1,(m.y-1)*C+1,3*C-3,3*C-3);}
   if(hov&&left>0&&!done){const [hx,hy]=hov;
     for(let y=hy-1;y<=hy+1;y++)for(let x=hx-1;x<=hx+1;x++){if(x<0||x>=Q.W||y<0||y>=Q.H)continue;
@@ -75,17 +76,23 @@ function draw(){
 }
 function tick(){
   if(done)return;
+  if(luck&&Math.random()<0.1){const x=Math.floor(Math.random()*Q.W),y=Math.floor(Math.random()*Q.H);
+    for(let yy=y-1;yy<=y+1;yy++)for(let xx=x-1;xx<=x+1;xx++)if(xx>=0&&xx<Q.W&&yy>=0&&yy<Q.H)f[yy][xx]+=(1-f[yy][xx])*0.6;
+    flashes.push({x,y,t:yr});}
 
   f=Q.step(f,P);yr++;
   let all=true;for(let x=0;x<Q.W;x++)if(Q.colmean(f,x)<=0.5){all=false;break;}
-  if(all){done=true;stop();msg(`第 ${yr} 年，从西到东都唱起了新歌。用了 ${BREATHS-left} 口气。`);}
-  else if(yr>=LIMIT){done=true;stop();msg(`${LIMIT} 年过去了，还有地方在唱老歌。`);}
+  if(all){done=true;stop();msg(luck?`第 ${yr} 年，没有人吹，靠偶然也从西到东都唱起了新歌。`:`第 ${yr} 年，从西到东都唱起了新歌。用了 ${BREATHS-left} 口气。`);}
+  else if(yr>=LIMIT){done=true;stop();msg(luck?`${LIMIT} 年过去了，靠偶然，还有地方在唱老歌。`:`${LIMIT} 年过去了，还有地方在唱老歌。`);}
   draw();
 }
 function stop(){run=false;clearInterval(timer);document.getElementById('go').textContent='接着';}
 document.getElementById('go').onclick=()=>{if(done)return;if(run){stop();return;}run=true;document.getElementById('go').textContent='停';timer=setInterval(tick,document.getElementById('fast').checked?50:180);};
 document.getElementById('fast').onchange=()=>{if(run){clearInterval(timer);timer=setInterval(tick,document.getElementById('fast').checked?50:180);}};
 document.getElementById('re').onclick=reset;
+document.getElementById('luck').onclick=()=>{reset();luck=true;left=0;
+  msg('这一局你不吹。每年有一成的机会，随机一块地方的鸟多学了一点新歌（蓝框），像真事里的偶然。看哪儿先翻、哪儿一直不翻。');
+  draw();document.getElementById('go').click();};
 document.getElementById('lv').onclick=()=>{lv=(lv+1)%LV.length;reset();};
 document.getElementById('sh').onchange=draw;
 cv.onmousemove=e=>{const r=cv.getBoundingClientRect(),x=Math.floor((e.clientX-r.left)*cv.width/r.width/C),y=Math.floor((e.clientY-r.top)*cv.height/r.height/C);
