@@ -16,7 +16,7 @@ canvas{display:block;cursor:crosshair}
 </style></head><body>
 <h1>雀鸣</h1>
 <p class="s">一种麻雀，西边的唱新歌（金色），东边的唱老歌（绿色）。小鸟跟着身边听到多的学。冬天它们飞到南边几片地方过冬，混住在一起，冬天听到的也算。</p>
-<p class="s">你有几口气（第一张图四口，第二张三口，第三张也是三口）。春天点一下地图，就在那儿对今年的小鸟吹一遍新歌。让新歌从西唱到东，唱遍整片地方（每一列都过半）。吹完了别急，有时候要等十几二十年才看得出吹没吹成。</p>
+<p class="s">你有几口气（第一张图五口，第二张三口，第三张也是三口）。春天点一下地图，就在那儿对今年的小鸟吹一遍新歌。让新歌从西唱到东，唱遍整片地方（每一列都过半）。吹完了别急，有时候要等十几二十年才看得出吹没吹成。</p>
 <div id="top"><span id="lvn"></span><span>第 <b id="yr">0</b> 年</span><span id="br"></span>
 <button id="go">开始</button><button id="re">从头</button><button id="lv"></button><button id="luck">没有你的话</button>
 <label style="font-size:13px"><input type="checkbox" id="sh"> 看过冬地</label><label style="font-size:13px"><input type="checkbox" id="fast"> 快</label></div>
@@ -29,7 +29,7 @@ canvas{display:block;cursor:crosshair}
 const Q=window.Que, C=26, cv=document.getElementById('cv'), g=cv.getContext('2d');
 const MAPH=Q.H*C, WINH=70;
 cv.width=Q.W*C; cv.height=MAPH+WINH+10;
-const LV=[{map:'直',br:4,name:'第一张图'},{map:'弯',br:3,name:'第二张图'},{map:'真',br:3,name:'第三张图',q:0.45,note:'这张图照真鸟画的：西边和中部的鸟都去美国中南部同一大片地方过冬，山西边的鸟有四成多也去；东边的鸟去佐治亚，自己一片。'}];let lv=0,BREATHS=4,P=Q.P0;const LIMIT=200;
+const LV=[{map:'直',br:5,name:'第一张图'},{map:'弯',br:3,name:'第二张图'},{map:'真',br:3,name:'第三张图',q:0.45,note:'这张图照真鸟画的：西边和中部的鸟都去美国中南部同一大片地方过冬，山西边的鸟有四成多也去；东边的鸟去佐治亚，自己一片。'}];let lv=0,BREATHS=4,P=Q.P0;const LIMIT=200;
 let f,yr,left,run,timer,marks,done,hist,hov=null,luck=false,flashes=[];
 function reset(){Q.useMap(LV[lv].map);BREATHS=LV[lv].br;P=Object.assign({},Q.P0,LV[lv].q!==undefined?{q:LV[lv].q}:{});document.getElementById('lv').textContent='换到'+LV[(lv+1)%LV.length].name;document.getElementById('note').textContent='';luck=false;flashes=[];f=Q.fresh();yr=0;left=BREATHS;run=false;done=false;marks=[];hist=[];clearInterval(timer);
   document.getElementById('go').textContent='开始';msg('');draw();}
