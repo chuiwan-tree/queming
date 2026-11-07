@@ -31,7 +31,7 @@ const MAPH=Q.H*C, WINH=70;
 cv.width=Q.W*C; cv.height=MAPH+WINH+10;
 const LV=[{map:'直',br:4,name:'第一张图'},{map:'弯',br:3,name:'第二张图'},{map:'真',br:3,name:'第三张图',q:0.45,note:'这张图照真鸟画的：西边和中部的鸟都去美国中南部同一大片地方过冬，山西边的鸟有四成多也去；东边的鸟去佐治亚，自己一片。'}];let lv=0,BREATHS=4,P=Q.P0;const LIMIT=200;
 let f,yr,left,run,timer,marks,done,hist,hov=null,luck=false,flashes=[];
-function reset(){Q.useMap(LV[lv].map);BREATHS=LV[lv].br;P=Object.assign({},Q.P0,LV[lv].q!==undefined?{q:LV[lv].q}:{});document.getElementById('lv').textContent='换到'+LV[(lv+1)%LV.length].name;document.getElementById('note').textContent=LV[lv].note||'';luck=false;flashes=[];f=Q.fresh();yr=0;left=BREATHS;run=false;done=false;marks=[];hist=[];clearInterval(timer);
+function reset(){Q.useMap(LV[lv].map);BREATHS=LV[lv].br;P=Object.assign({},Q.P0,LV[lv].q!==undefined?{q:LV[lv].q}:{});document.getElementById('lv').textContent='换到'+LV[(lv+1)%LV.length].name;document.getElementById('note').textContent='';luck=false;flashes=[];f=Q.fresh();yr=0;left=BREATHS;run=false;done=false;marks=[];hist=[];clearInterval(timer);
   document.getElementById('go').textContent='开始';msg('');draw();}
 function msg(s){document.getElementById('msg').textContent=s;}
 function col(v){ // 绿(老) -> 金(新)
@@ -82,7 +82,7 @@ function tick(){
 
   f=Q.step(f,P);yr++;
   let all=true;for(let x=0;x<Q.W;x++)if(Q.colmean(f,x)<=0.5){all=false;break;}
-  if(all){done=true;stop();msg(luck?`第 ${yr} 年，没有人吹，靠偶然也从西到东都唱起了新歌。`:`第 ${yr} 年，从西到东都唱起了新歌。用了 ${BREATHS-left} 口气。`);}
+  if(all){done=true;stop();msg(luck?`第 ${yr} 年，没有人吹，靠偶然也从西到东都唱起了新歌。`:`第 ${yr} 年，从西到东都唱起了新歌。用了 ${BREATHS-left} 口气。`);document.getElementById('note').textContent=LV[lv].note||'';}
   else if(yr>=LIMIT){done=true;stop();msg(luck?`${LIMIT} 年过去了，靠偶然，还有地方在唱老歌。`:`${LIMIT} 年过去了，还有地方在唱老歌。`);}
   draw();
 }
@@ -103,7 +103,7 @@ cv.onclick=e=>{
   if(y>=Q.H||x<0||x>=Q.W||done)return;
   if(left<=0){msg('气用完了。');return;}
   let w=0;for(let yy=y-1;yy<=y+1;yy++)for(let xx=x-1;xx<=x+1;xx++)if(xx>=0&&xx<Q.W&&yy>=0&&yy<Q.H&&f[yy][xx]>0.5)w++;
-  Q.blow(f,x,y);left--;marks.push({x,y,t:yr});
+  Q.blow(f,x,y);left--;marks.push({x,y,t:yr});hov=null;
   msg(w?`这一口有 ${w} 格吹在已经唱新歌的鸟身上，那几格白吹了。`:'');draw();
 };
 reset();
