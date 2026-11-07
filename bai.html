@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>雀鸣·摆</title>
+<style>
+body{background:#1b1d1a;color:#ddd8c8;font-family:-apple-system,"PingFang SC",sans-serif;margin:0;display:flex;flex-direction:column;align-items:center}
+h1{font-weight:400;font-size:20px;margin:14px 0 4px}
+p.s{margin:2px 0;font-size:13px;color:#a9a48f;max-width:780px;line-height:1.6}
+#top{display:flex;gap:16px;align-items:center;margin:8px 0;font-size:15px;flex-wrap:wrap;justify-content:center}
+button{background:#33362f;color:#ddd8c8;border:1px solid #555a4c;border-radius:5px;padding:5px 12px;font-size:14px;cursor:pointer}
+button:hover{background:#43473c}
+canvas{display:block;cursor:crosshair}
+#msg{min-height:22px;font-size:15px;color:#f0d78a;margin:6px}
+#tl{width:780px}
+.b{display:inline-block;width:12px;height:12px;border-radius:6px;background:#f0c040;margin-right:3px;vertical-align:-1px}
+.b.used{background:#444}
+</style></head><body>
+<h1>雀鸣·摆</h1>
+<p class="s">一种麻雀，西边的唱新歌（金色），东边的唱老歌（绿色）。小鸟跟着身边听到多的学。冬天它们飞到南边几片地方过冬，混住在一起，冬天听到的也算。</p>
+<p class="s">这一版不用等：底下的横条是时间。拖到第几年，地图就是那一年的样子。在地图上点一下，就在拖到的那一年、那个地方吹一口新歌，后面二百年马上重算。再点那一口就收回。让新歌唱遍整片地方（每一列都过半），越早越好，气越省越好。</p>
+<div id="top"><span id="lvn"></span><span id="br"></span>
+<button id="lv"></button><button id="clr">全收回</button>
+<label style="font-size:13px"><input type="checkbox" id="sh"> 看过冬地</label>
+<label style="font-size:13px"><input type="checkbox" id="tr"> 看涨退</label>
+<label style="font-size:13px"><input type="checkbox" id="play"> 自己往前走</label></div>
+<canvas id="cv"></canvas>
+<div style="font-size:14px">第 <b id="yr">0</b> 年 <input type="range" id="tl" min="0" max="200" value="0"></div>
+<div id="msg"></div><div><button id="gobk" style="display:none"></button></div>
+<p class="s" id="best"></p>
+<p class="s">底下那几格是几片过冬地：白线是这片过冬地每年冬天新歌几成，灰线是你上一回的摆法，竖的亮线是现在拖到的那一年，蓝杠是吹的年份，虚线是一半。勾上"看涨退"，地图上的小三角是这一年到下一年，那一格唱新歌的鸟在变多（尖朝上）还是变少（尖朝下）。</p>
+<p class="s" id="note" style="color:#c8b878"></p>
+<script src="sim.js"></script>
+<script>
+const Q=window.Que, C=26, cv=document.getElementById('cv'), g=cv.getContext('2d');
+const MAPH=Q.H*C, WINH=100, T=200;
+cv.width=Q.W*C; cv.height=MAPH+WINH+10;
+const LV=[{map:'直',br:5,name:'第一张图'},{map:'弯',br:3,name:'第二张图'},{map:'真',br:3,name:'第三张图',q:0.45,note:'这张图照真鸟画的：西边和中部的鸟都去美国中南部同一大片地方过冬，山西边的鸟有四成多也去；东边的鸟去佐治亚，自己一片。'}];
+let lv=0,P,BR,plan=[],frames,pools,winYr,breakYr=null,ghost=null,cur=0,hov=null,timer=null;
+const best={};const tl=document.getElementById('tl');
+function useLv(){Q.useMap(LV[lv].map);BR=LV[lv].br;P=Object.assign({},Q.P0,LV[lv].q!==undefined?{q:LV[lv].q}:{});
+  document.getElementById('lv').textContent='换到'+LV[(lv+1)%LV.length].name;document.getElementById('lvn').textContent=LV[lv].name;
+  plan=[];ghost=null;cur=0;document.getElementById('tl').value=0;compute(false,false);}
+function win(f){for(let x=0;x<Q.W;x++)if(Q.colmean(f,x)<=0.5)return false;return true;}
+function compute(keepGhost=true,changed=true){
+  if(keepGhost&&pools)ghost=pools;
+  let f=Q.fresh();frames=[];pools=[];winYr=null;
+  for(let t=0;t<=T;t++){
+    for(const m of plan)if(m.t===t)Q.blow(f,m.x,m.y);
+    frames.push(f.map(r=>r.slice()));pools.push(Q.pools(f,P).slice());
+    if(winYr===null&&win(f))winYr=t;
+    if(t<T)f=Q.step(f,P);
+  }
+  const k=LV[lv].name;
+  if(winYr!==null){const sc=[plan.length,winYr];if(!best[k]||sc[0]<best[k][0]||(sc[0]===best[k][0]&&sc[1]<best[k][1]))best[k]=sc;}
+  breakYr=null;
+  if(winYr===null&&plan.length){const tb=Math.max(...plan.map(m=>m.t));let bestGain=0;
+    const rs=[...new Set(plan.filter(m=>m.t===tb).map(m=>Q.reg(m.x,m.y)))];let worst=0;for(const b of rs){for(let t=tb+3;t<Math.min(T,tb+40);t++){const d=pools[t+1][b]-pools[t][b];if(d<worst){worst=d;breakYr=t;}}}}
+  msg();draw();}
+function msg(){
+  const m=document.getElementById('msg');
+  if(winYr!==null){m.textContent=`照这样摆，第 ${winYr} 年唱遍。用了 ${plan.length} 口气。`;document.getElementById('note').textContent=LV[lv].note||'';}
+  else{m.textContent=plan.length?`照这样摆，${T} 年还有地方在唱老歌。`+(breakYr!==null?` 最后吹的那几口，第 ${breakYr} 年退得最快。`:''):'还没吹。不吹的话，'+T+' 年后新歌停在第 '+front(frames[T])+' 列。';document.getElementById('note').textContent='';}
+  const gb=document.getElementById('gobk');if(winYr===null&&breakYr!==null){gb.style.display='';gb.textContent=`去第 ${breakYr} 年看它从哪退`;}else gb.style.display='none';
+  const b=best[LV[lv].name];document.getElementById('best').textContent=b?`${LV[lv].name}你摆过最好的：${b[0]} 口气，第 ${b[1]} 年唱遍。`:'';}
+function front(f){let x=0;while(x<Q.W&&Q.colmean(f,x)>0.5)x++;return x;}
+function col(v){const a=[70,110,70],b=[240,192,64];return `rgb(${a.map((x,i)=>Math.round(x+(b[i]-x)*v)).join(',')})`;}
+function draw(){
+  const f=frames[cur];
+  g.fillStyle='#1b1d1a';g.fillRect(0,0,cv.width,cv.height);
+  for(let y=0;y<Q.H;y++)for(let x=0;x<Q.W;x++){g.fillStyle=col(f[y][x]);g.fillRect(x*C,y*C,C-1,C-1);}
+  if(document.getElementById('tr').checked&&cur<T){const n=frames[cur+1];
+    for(let y=0;y<Q.H;y++)for(let x=0;x<Q.W;x++){const d=n[y][x]-f[y][x];if(Math.abs(d)<0.004)continue;
+      const k=Math.min(1,Math.abs(d)/0.06),cx=x*C+C/2,cy=y*C+C/2,h=4+7*k;
+      g.fillStyle=d>0?`rgba(255,250,210,${0.5+0.5*k})`:`rgba(30,60,30,${0.5+0.5*k})`;
+      g.beginPath();if(d>0){g.moveTo(cx,cy-h);g.lineTo(cx-h*0.8,cy+h*0.6);g.lineTo(cx+h*0.8,cy+h*0.6);}else{g.moveTo(cx,cy+h);g.lineTo(cx-h*0.8,cy-h*0.6);g.lineTo(cx+h*0.8,cy-h*0.6);}g.fill();}}
+  g.fillStyle='rgba(120,90,60,0.85)';
+  for(let y=0;y<Q.H;y++){g.beginPath();g.moveTo(Q.ROCK*C-5,y*C+C);g.lineTo(Q.ROCK*C+2,y*C+3);g.lineTo(Q.ROCK*C+9,y*C+C);g.fill();}
+  for(const m of plan){const a=m.t===cur?1:(m.t<cur?Math.max(0.25,1-(cur-m.t)/25):0.35);
+    g.strokeStyle=`rgba(255,255,255,${a})`;g.lineWidth=2;g.setLineDash(m.t>cur?[4,3]:[]);g.strokeRect((m.x-1)*C+1,(m.y-1)*C+1,3*C-3,3*C-3);g.setLineDash([]);
+    g.fillStyle=`rgba(255,255,255,${a})`;g.font='10px sans-serif';g.fillText(m.t,(m.x-1)*C+4,(m.y-1)*C+11);}
+  if(hov&&!plan.find(m=>m.x===hov[0]&&m.y===hov[1])&&plan.length<BR){const [hx,hy]=hov;
+    for(let y=hy-1;y<=hy+1;y++)for(let x=hx-1;x<=hx+1;x++){if(x<0||x>=Q.W||y<0||y>=Q.H)continue;
+      if(f[y][x]>0.5){g.strokeStyle='rgba(220,60,50,0.9)';g.lineWidth=2;g.beginPath();g.moveTo(x*C+6,y*C+6);g.lineTo(x*C+C-7,y*C+C-7);g.stroke();g.beginPath();g.moveTo(x*C+C-7,y*C+6);g.lineTo(x*C+6,y*C+C-7);g.stroke();}
+      else{g.fillStyle='rgba(255,240,200,0.35)';g.fillRect(x*C,y*C,C-1,C-1);}}
+    g.strokeStyle='rgba(255,250,230,0.9)';g.lineWidth=1.5;g.strokeRect((hx-1)*C+0.5,(hy-1)*C+0.5,3*C-2,3*C-2);}
+  const sh=document.getElementById('sh').checked;
+  const present=[];for(let b=0;b<Q.NB;b++){let k=false;for(let y=0;y<Q.H&&!k;y++)for(let x=0;x<Q.W;x++)if(Q.reg(x,y)===b){k=true;break;}if(k)present.push(b);}
+  const ord={};present.forEach((b,i)=>ord[b]=i);
+  if(sh){g.strokeStyle='rgba(255,255,255,0.55)';g.lineWidth=2;
+    for(let y=0;y<Q.H;y++)for(let x=0;x<Q.W;x++){const r=Q.reg(x,y);
+      if(x+1<Q.W&&Q.reg(x+1,y)!==r&&x+1!==Q.ROCK){g.beginPath();g.moveTo((x+1)*C-0.5,y*C);g.lineTo((x+1)*C-0.5,(y+1)*C);g.stroke();}
+      if(y+1<Q.H&&Q.reg(x,y+1)!==r){g.beginPath();g.moveTo(x*C,(y+1)*C-0.5);g.lineTo((x+1)*C,(y+1)*C-0.5);g.stroke();}}
+    g.fillStyle='rgba(255,255,255,0.5)';g.font='13px sans-serif';
+    const seen={};for(let y=0;y<Q.H;y++)for(let x=0;x<Q.W;x++){const r=Q.reg(x,y);(seen[r]=seen[r]||[]).push([x,y]);}
+    for(const r in seen){const c=seen[r][Math.floor(seen[r].length/2)];g.fillText('一二三四五'[ord[r]],c[0]*C+7,c[1]*C+18);}}
+  const y0=MAPH+10,bw=cv.width/present.length;
+  for(let i=0;i<present.length;i++){const b=present[i],x0=i*bw,x1=(i+1)*bw,v=pools[cur][b];
+    g.fillStyle='#262923';g.fillRect(x0+3,y0,x1-x0-6,WINH-10);
+    const hh=(WINH-14)*Math.max(v,0.03);g.fillStyle=col(v);g.globalAlpha=0.55;g.fillRect(x0+3,y0+WINH-10-hh,x1-x0-6,hh);g.globalAlpha=1;
+    g.fillStyle='#ddd8c8';g.font='12px sans-serif';g.fillText(sh?`过冬地${'一二三四五'[i]}`:'过冬地 ?',x0+8,y0+16);g.fillText(`${Math.round(v*100)}% 新歌`,x0+8,y0+32);
+    const L=x0+6,R=x1-6,TT=y0+38,B=y0+WINH-13,px=t=>L+(R-L)*t/T,py=v=>B-(B-TT)*v;
+    g.strokeStyle='rgba(255,255,255,0.18)';g.lineWidth=1;g.beginPath();g.moveTo(L,py(0.5));g.lineTo(R,py(0.5));g.stroke();
+    const cnt={};for(const m of plan)cnt[m.t]=(cnt[m.t]||0)+1;
+    for(const t in cnt){g.strokeStyle='rgba(90,170,255,0.9)';g.lineWidth=2;g.beginPath();g.moveTo(px(+t),TT);g.lineTo(px(+t),B);g.stroke();
+      if(cnt[t]>1){g.fillStyle='rgba(120,190,255,1)';g.font='10px sans-serif';g.fillText('×'+cnt[t],px(+t)+3,TT+9);}}
+    if(ghost){g.beginPath();for(let t=0;t<=T;t++){const p=ghost[t][b];t?g.lineTo(px(t),py(p)):g.moveTo(px(t),py(p));}g.strokeStyle='rgba(160,160,160,0.6)';g.lineWidth=1.5;g.stroke();}
+    g.beginPath();for(let t=0;t<=T;t++){const p=pools[t][b];t?g.lineTo(px(t),py(p)):g.moveTo(px(t),py(p));}
+    g.strokeStyle='rgba(20,20,15,0.7)';g.lineWidth=3.5;g.stroke();g.strokeStyle='rgba(255,255,255,0.95)';g.lineWidth=1.5;g.stroke();
+    g.strokeStyle='rgba(255,240,180,0.8)';g.lineWidth=1;g.beginPath();g.moveTo(px(cur),TT-4);g.lineTo(px(cur),B+2);g.stroke();
+    if(winYr!==null){g.fillStyle='rgba(240,200,80,0.9)';g.beginPath();g.arc(px(winYr),TT-2,3,0,7);g.fill();}
+  }
+  document.getElementById('yr').textContent=cur;
+  document.getElementById('br').innerHTML='气 '+Array.from({length:BR},(_,i)=>`<span class="b ${i<plan.length?'used':''}"></span>`).join('');
+}
+tl.oninput=()=>{cur=+tl.value;draw();};
+function cell(e){const r=cv.getBoundingClientRect();return [Math.floor((e.clientX-r.left)*cv.width/r.width/C),Math.floor((e.clientY-r.top)*cv.height/r.height/C)];}
+cv.onmousemove=e=>{const [x,y]=cell(e);const n=(y<Q.H&&x>=0&&x<Q.W)?[x,y]:null;if(String(n)!==String(hov)){hov=n;draw();}};
+cv.onmouseleave=()=>{hov=null;draw();};
+cv.onclick=e=>{const [x,y]=cell(e);if(y>=Q.H||x<0||x>=Q.W)return;
+  // 点到已经摆的那一口（3x3 里、同一年或任何年都算）就收回最近的一口
+  let k=-1,bd=99;plan.forEach((m,i)=>{const d=Math.max(Math.abs(m.x-x),Math.abs(m.y-y));if(d<=1&&(d<bd||(d===bd&&m.t===cur))){bd=d;k=i;}});
+  if(k>=0&&bd===0){plan.splice(k,1);compute();return;}
+  if(plan.length>=BR){document.getElementById('msg').textContent='气用完了。点一下已经摆的那一口（它的正中间）可以收回。';return;}
+  plan.push({x,y,t:cur});hov=null;compute();};
+document.getElementById('gobk').onclick=()=>{cur=breakYr;tl.value=cur;document.getElementById('tr').checked=true;draw();};
+document.getElementById('clr').onclick=()=>{plan=[];compute();};
+document.getElementById('lv').onclick=()=>{lv=(lv+1)%LV.length;useLv();};
+document.getElementById('sh').onchange=draw;document.getElementById('tr').onchange=draw;
+document.getElementById('play').onchange=e=>{clearInterval(timer);if(e.target.checked)timer=setInterval(()=>{cur=cur>=T?0:cur+1;tl.value=cur;draw();},60);};
+useLv();
+</script></body></html>
